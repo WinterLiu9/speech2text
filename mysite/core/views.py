@@ -1,80 +1,77 @@
 from django.shortcuts import render, redirect
-from django.views.generic import TemplateView, ListView, CreateView
+from django.views.generic import TemplateView
 from django.core.files.storage import FileSystemStorage
-from django.urls import reverse_lazy
+from mysite.core.email import GMailService
 
-from .forms import BookForm
-from .models import Book
+from mysite.core.util import is_valid_email, load_yaml_file
+
 from .speech2text import SplitWavAudioMubin, OpenaiAPI
-import smtplib
-from email.mime.text import MIMEText
+
+from django.http import JsonResponse
 
 class Home(TemplateView):
     template_name = 'home.html'
 
-
-
-def send_email(subject, body, sender, recipients, password):
-    msg = MIMEText(body)
-    msg['Subject'] = subject
-    msg['From'] = sender
-    msg['To'] = ', '.join(recipients)
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
-       smtp_server.login(sender, password)
-       smtp_server.sendmail(sender, recipients, msg.as_string())
-    print("Message sent!")
-
-
-
-
 def upload(request):
     context = {}
     if request.method == 'POST':
+        need_translation = bool(int(request.POST['traslation']))
+        token = request.POST['token']
+        config_token = load_yaml_file("./config/config.yaml")['token']
+        if token != config_token:
+            context['url'] = 'Please enter the correct token.'
+            return render(request, 'home.html', context)
         uploaded_file = request.FILES['document']
         language = request.POST['language']
-        if language is None or language == '' or language not in ('zh', 'en'):
-            language = 'en'
+        email = request.POST['email']
+        if not is_valid_email(email):
+            context['url'] = 'Please enter the correct email address.'
+            return render(request, 'home.html', context)
+
         fs = FileSystemStorage()
-        name = fs.save(uploaded_file.name, uploaded_file)
+        fs.save(uploaded_file.name, uploaded_file)
+
+        # split into small file
         split_wav = SplitWavAudioMubin('./media', uploaded_file.name)
         split_wav.multiple_split(min_per_split=5)
-        openaiapi = OpenaiAPI('./media', uploaded_file.name, split_wav.split_files,  language)
-        openaiapi.call()
-        subject = f'[Speech2Text] {uploaded_file.name}'
-        body = "\n\n\n".join(openaiapi.texts)
-        sender = "yadong.liu18@gmail.com"
-        recipients = ["yadong.liu18@gmail.com",'liyaning@sph.com.sg']
-        #recipients = ["yadong.liu18@gmail.com"]
-        password = "srbddcoceoupijnj"
-        send_email(subject, body, sender, recipients, password)
-        context['url'] = fs.url(name)
+
+        openai = OpenaiAPI('./media', uploaded_file.name, split_wav.split_files, language, need_translation)
+        openai.speech2text()
+
+        en_res = openai.texts
+        zh_res = openai.translated_texts
+
+        mail = GMailService([email], f'[Speech2Text] {uploaded_file.name}', en_res+zh_res)
+        mail.send_email()
+
+        context['url'] = 'You have successfully uploaded your file. Please check your email.'
+
     return render(request, 'home.html', context)
 
 
-def book_list(request):
-    books = Book.objects.all()
-    return render(request, 'book_list.html', {
-        'books': books
-    })
 
 
-def upload_book(request):
+def upload_internal(request):
     if request.method == 'POST':
-        form = BookForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
-            return redirect('book_list')
-    else:
-        form = BookForm()
-    return render(request, 'upload_book.html', {
-        'form': form
-    })
+        need_translation = request.POST['traslation']
+        uploaded_file_folder = request.POST['folder']
+        uploaded_file_name = request.POST['file_name']
+        language = request.POST['language']
+        email = request.POST['email']
 
+        # split into small file
+        split_wav = SplitWavAudioMubin(uploaded_file_folder, uploaded_file_name)
+        split_wav.multiple_split(min_per_split=5)
 
-def delete_book(request, pk):
-    if request.method == 'POST':
-        book = Book.objects.get(pk=pk)
-        book.delete()
-    return redirect('book_list')
+        openai = OpenaiAPI(uploaded_file_folder, uploaded_file_name, split_wav.split_files, language, need_translation)
+        openai.speech2text()
 
+        en_res = openai.texts
+        zh_res = openai.translated_texts
 
+        mail = GMailService([email], f'[Speech2Text] {uploaded_file_name}', en_res+zh_res)
+        mail.send_email()
+    response_data = {}
+    response_data['result'] = 'success'
+    response_data['message'] = 'success'
+    return JsonResponse(response_data)

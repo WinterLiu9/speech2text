@@ -25,7 +25,7 @@ SECRET_KEY = '3w5+j6wh0^w9pjv14egctmtb^(7cq#whl%q(_8t*_(q2y^5z@a'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['speech2text.winter9.win']
+ALLOWED_HOSTS = ['voice.winter9.win', 'speech2text.winter9.win', '0.0.0.0', '192.168.0.103']
 
 
 # Application definition

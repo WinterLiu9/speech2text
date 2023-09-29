@@ -1,11 +1,28 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  <h2>Speech2Text</h2>
+  <h3>Speech2Text</h3>
+  <h5>本转写模型基于OpenAI的<a href="https://openai.com/blog/introducing-chatgpt-and-whisper-apis">Whisper</a>模型</h5>
+  <h5>请上传需要转写的语音文件,并选择文件的语言</h5>
+  <h5>输入接收结果的邮箱</h5>
   <form method="post" enctype="multipart/form-data">
     {% csrf_token %}
     <input type="file" name="document">
-    <input type="text" id="language" name="language" placeholder="enter language, en or zh">
+    <br><br>
+    language: <select name = 'language'>
+      <option value="en">English</option>
+      <option value="zh">Chinese</option>
+    </select>
+    <br><br>
+    need traslation: <select name = 'traslation'>
+      <option value="0">No</option>
+      <option value="1">Yes</option>
+    </select>
+    <br><br>
+    email: <input type="email" id="email" name="email" placeholder="enter your email"  required>
+    <br><br>
+    token: <input type="text" id="token" name="token" placeholder="enter token" required>
+	<br><br>
     <button type="submit">Upload file</button>
   </form>
   {% if url %}

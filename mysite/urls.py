@@ -9,6 +9,7 @@ from mysite.core import views
 urlpatterns = [
     #path('', views.Home.as_view(), name='home'),
     path('', views.upload, name='home'),
+    path('internal', views.upload_internal, name='internal')
 #    path('books/', views.book_list, name='book_list'),
  #   path('books/upload/', views.upload_book, name='upload_book'),
  #   path('books/<int:pk>/', views.delete_book, name='delete_book'),
